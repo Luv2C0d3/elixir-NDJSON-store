@@ -66,7 +66,7 @@ defmodule TokenRepository do
 
   @doc """
   Deletes an access token by its value.
-  Returns :ok on success, {:error, :not_found} if token doesn't exist.
+  Returns {:ok, token} on success, {:error, :not_found} if token doesn't exist.
   """
   def delete_access_token(pid, access_token) do
     GenServer.call(pid, {:delete_access_token, access_token})
@@ -74,7 +74,7 @@ defmodule TokenRepository do
 
   @doc """
   Deletes a refresh token by its value.
-  Returns :ok on success, {:error, :not_found} if token doesn't exist.
+  Returns {:ok, token} on success, {:error, :not_found} if token doesn't exist.
   """
   def delete_refresh_token(pid, refresh_token) do
     GenServer.call(pid, {:delete_refresh_token, refresh_token})
@@ -95,7 +95,7 @@ defmodule TokenRepository do
   @impl true
   def handle_call({:insert_access_token, token}, _from, state) do
     case SimpleISAM.insert(state.isam_pid, token) do
-      {:ok, token} -> {:reply, {:ok, token}, state}
+      {:ok, _} -> {:reply, {:ok, token}, state}
       error -> {:reply, error, state}
     end
   end
@@ -103,7 +103,7 @@ defmodule TokenRepository do
   @impl true
   def handle_call({:insert_refresh_token, token}, _from, state) do
     case SimpleISAM.insert(state.isam_pid, token) do
-      {:ok, token} -> {:reply, {:ok, token}, state}
+      {:ok, _} -> {:reply, {:ok, token}, state}
       error -> {:reply, error, state}
     end
   end
@@ -115,7 +115,7 @@ defmodule TokenRepository do
       case raw do
         nil -> nil
         %AccessToken{} = s -> s
-        other when is_map(other) -> struct(AccessToken, other)
+        other when is_map(other) -> struct(AccessToken, atomize_keys(other))
       end
     {:reply, result, state}
   end
@@ -127,7 +127,7 @@ defmodule TokenRepository do
       case raw do
         nil -> nil
         %RefreshToken{} = s -> s
-        other when is_map(other) -> struct(RefreshToken, other)
+        other when is_map(other) -> struct(RefreshToken, atomize_keys(other))
       end
     {:reply, result, state}
   end
@@ -135,12 +135,36 @@ defmodule TokenRepository do
   @impl true
   def handle_call({:delete_access_token, access_token}, _from, state) do
     result = SimpleISAM.delete(state.isam_pid, :access_token, access_token)
-    {:reply, result, state}
+    case result do
+      {:ok, map} ->
+        token = struct(AccessToken, atomize_keys(map))
+        {:reply, {:ok, token}, state}
+
+      error ->
+        {:reply, error, state}
+    end
   end
 
   @impl true
   def handle_call({:delete_refresh_token, refresh_token}, _from, state) do
     result = SimpleISAM.delete(state.isam_pid, :refresh_token, refresh_token)
-    {:reply, result, state}
+    case result do
+      {:ok, map} ->
+        token = struct(RefreshToken, atomize_keys(map))
+        {:reply, {:ok, token}, state}
+
+      error ->
+        {:reply, error, state}
+    end
   end
+
+  # Private helpers
+
+  defp atomize_keys(%_{} = struct), do: struct |> Map.from_struct() |> atomize_keys()
+  defp atomize_keys(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {to_atom(k), v} end)
+  end
+
+  defp to_atom(key) when is_atom(key), do: key
+  defp to_atom(key) when is_binary(key), do: String.to_atom(key)
 end

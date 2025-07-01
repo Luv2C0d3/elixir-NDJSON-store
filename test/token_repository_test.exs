@@ -75,12 +75,16 @@ defmodule TokenRepositoryTest do
     # Delete access token
     assert {:ok, ^access_token} = TokenRepository.delete_access_token(pid, "rsgaobZaE09V4OA8kQDkP9d3pn-KCw5aTTR8pcf_Mw8")
     assert nil == TokenRepository.get_access_token(pid, "rsgaobZaE09V4OA8kQDkP9d3pn-KCw5aTTR8pcf_Mw8")
+    # Try to delete the same access token again
+    assert {:error, :not_found} = TokenRepository.delete_access_token(pid, "rsgaobZaE09V4OA8kQDkP9d3pn-KCw5aTTR8pcf_Mw8")
     # Refresh token should still exist
     assert ^refresh_token = TokenRepository.get_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
 
     # Delete refresh token
     assert {:ok, ^refresh_token} = TokenRepository.delete_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
     assert nil == TokenRepository.get_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
+    # Try to delete the same refresh token again
+    assert {:error, :not_found} = TokenRepository.delete_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
   end
 
   test "handles non-existent token deletion", %{pid: pid} do
