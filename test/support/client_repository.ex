@@ -1,7 +1,7 @@
-defmodule OAuthClientRepository do
+defmodule ClientRepository do
   @moduledoc """
-  A facade for SimpleISAM that provides OAuth client operations.
-  This repository handles OAuth client registration and lookup.
+  A facade for SimpleISAM that provides client operations.
+  This repository handles client registration and lookup.
   """
 
   use GenServer
