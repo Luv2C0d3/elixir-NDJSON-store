@@ -19,7 +19,7 @@ defmodule ClientRepositoryTest do
     %{pid: pid, client_file: client_file}
   end
 
-  test "registers and retrieves oauth clients", %{pid: pid} do
+  test "registers and retrieves clients", %{pid: pid} do
     client = %OAuthClient{
       client_id: "oauth-client-1",
       client_secret: "oauth-client-secret-1",

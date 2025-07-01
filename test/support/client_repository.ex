@@ -54,7 +54,7 @@ defmodule ClientRepository do
 
   @doc """
   Deletes a client by its client_id.
-  Returns :ok on success, {:error, :not_found} if client doesn't exist.
+  Returns {:ok, client} on success, {:error, :not_found} if client doesn't exist.
   """
   def delete_client(pid, client_id) do
     GenServer.call(pid, {:delete_client, client_id})
@@ -87,7 +87,7 @@ defmodule ClientRepository do
       case raw do
         nil -> nil
         %OAuthClient{} = s -> s
-        other when is_map(other) -> struct(OAuthClient, other)
+        other when is_map(other) -> struct(OAuthClient, atomize_keys(other))
       end
     {:reply, result, state}
   end
@@ -109,6 +109,23 @@ defmodule ClientRepository do
   @impl true
   def handle_call({:delete_client, client_id}, _from, state) do
     result = SimpleISAM.delete(state.isam_pid, :client_id, client_id)
-    {:reply, result, state}
+    case result do
+      {:ok, map} ->
+        client = struct(OAuthClient, atomize_keys(map))
+        {:reply, {:ok, client}, state}
+
+      error ->
+        {:reply, error, state}
+    end
   end
+
+  # Private helpers
+
+  defp atomize_keys(%_{} = struct), do: struct |> Map.from_struct() |> atomize_keys()
+  defp atomize_keys(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {to_atom(k), v} end)
+  end
+
+  defp to_atom(key) when is_atom(key), do: key
+  defp to_atom(key) when is_binary(key), do: String.to_atom(key)
 end
