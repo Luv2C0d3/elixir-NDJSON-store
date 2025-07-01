@@ -87,7 +87,7 @@ defmodule SimpleISAM.OAuthClientTest do
     }
 
     assert {:ok, ^client} = SimpleISAM.insert(pid, client)
-    assert :ok = SimpleISAM.delete(pid, :client_id, "oauth-client-1")
+    assert {:ok, ^client} = SimpleISAM.delete(pid, :client_id, "oauth-client-1")
     assert nil == SimpleISAM.get(pid, :client_id, "oauth-client-1")
   end
 

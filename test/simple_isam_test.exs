@@ -55,7 +55,7 @@ defmodule SimpleISAMTest do
   test "deletes records", %{pid: pid} do
     user = %User{id: "user-1", name: "John Doe", email: "john@example.com"}
     assert {:ok, ^user} = SimpleISAM.insert(pid, user)
-    assert :ok = SimpleISAM.delete(pid, :id, "user-1")
+    assert {:ok, ^user} = SimpleISAM.delete(pid, :id, "user-1")
     assert nil == SimpleISAM.get(pid, :id, "user-1")
   end
 

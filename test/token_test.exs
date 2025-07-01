@@ -79,7 +79,7 @@ defmodule SimpleISAM.TokenTest do
     assert {:ok, ^access_token} = SimpleISAM.insert(pid, access_token)
     assert {:ok, ^refresh_token} = SimpleISAM.insert(pid, refresh_token)
 
-    assert :ok = SimpleISAM.delete(pid, :access_token, access_token.access_token)
+    assert {:ok, _} = SimpleISAM.delete(pid, :access_token, access_token.access_token)
     assert nil == SimpleISAM.get(pid, :access_token, access_token.access_token)
     assert ^refresh_token = SimpleISAM.get(pid, :refresh_token, refresh_token.refresh_token)
   end

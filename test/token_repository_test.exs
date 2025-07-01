@@ -73,13 +73,13 @@ defmodule TokenRepositoryTest do
     assert {:ok, ^refresh_token} = TokenRepository.insert_refresh_token(pid, refresh_token)
 
     # Delete access token
-    assert :ok = TokenRepository.delete_access_token(pid, "rsgaobZaE09V4OA8kQDkP9d3pn-KCw5aTTR8pcf_Mw8")
+    assert {:ok, ^access_token} = TokenRepository.delete_access_token(pid, "rsgaobZaE09V4OA8kQDkP9d3pn-KCw5aTTR8pcf_Mw8")
     assert nil == TokenRepository.get_access_token(pid, "rsgaobZaE09V4OA8kQDkP9d3pn-KCw5aTTR8pcf_Mw8")
     # Refresh token should still exist
     assert ^refresh_token = TokenRepository.get_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
 
     # Delete refresh token
-    assert :ok = TokenRepository.delete_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
+    assert {:ok, ^refresh_token} = TokenRepository.delete_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
     assert nil == TokenRepository.get_refresh_token(pid, "CE7Ct5rlJlbGi0e4tPQKUZpgavYc6wwgBFvLu2v_r-c")
   end
 

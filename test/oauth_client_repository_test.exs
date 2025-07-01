@@ -92,7 +92,7 @@ defmodule OAuthClientRepositoryTest do
     assert {:ok, ^client2} = OAuthClientRepository.register_client(pid, client2)
 
     # Delete first client
-    assert :ok = OAuthClientRepository.delete_client(pid, "oauth-client-1")
+    assert {:ok, ^client1} = OAuthClientRepository.delete_client(pid, "oauth-client-1")
     assert nil == OAuthClientRepository.get_client(pid, "oauth-client-1")
     # Second client should still exist
     assert ^client2 = OAuthClientRepository.get_client(pid, "oauth-client-2")

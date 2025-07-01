@@ -26,7 +26,8 @@ defmodule SimpleISAM do
   @spec get(pid(), atom() | String.t(), any()) :: map() | nil
   def get(pid, key_field, key_val), do: GenServer.call(pid, {:get, key_field, key_val})
 
-  @spec delete(pid(), atom() | String.t(), any()) :: :ok | {:error, :not_found}
+  @spec delete(pid(), atom() | String.t(), any()) :: {:ok, map()} | {:error, :not_found}
+
   def delete(pid, key_field, key_val),
     do: GenServer.call(pid, {:delete, key_field, key_val})
 
@@ -36,7 +37,7 @@ defmodule SimpleISAM do
 
   @impl true
   def init(opts) do
-    file_path  = Keyword.fetch!(opts, :file_path)
+    file_path = Keyword.fetch!(opts, :file_path)
     key_fields = Keyword.fetch!(opts, :key_fields)
 
     # Ensure dir exists
@@ -68,9 +69,10 @@ defmodule SimpleISAM do
   @impl true
   def handle_call({:get, key_field, key_val}, _from, state) do
     key = make_key(key_field, key_val)
+
     case :ets.lookup(state.table, key) do
       [{^key, rec}] -> {:reply, rec, state}
-      []            -> {:reply, nil, state}
+      [] -> {:reply, nil, state}
     end
   end
 
@@ -79,16 +81,17 @@ defmodule SimpleISAM do
     key = make_key(key_field, key_val)
 
     case :ets.lookup(state.table, key) do
-      [] -> {:reply, {:error, :not_found}, state}
+      [] ->
+        {:reply, {:error, :not_found}, state}
+
       [{^key, record}] ->
-        # Remove all keys that point at this record
         Enum.each(state.key_fields, fn kf ->
           val = Map.get(record, kf)
           if val != nil, do: :ets.delete(state.table, make_key(kf, val))
         end)
 
         rewrite_file(state.file_path, state.table)
-        {:reply, :ok, state}
+        {:reply, {:ok, record}, state}
     end
   end
 
@@ -97,6 +100,7 @@ defmodule SimpleISAM do
   # ---------------------------------------------------------------------------
 
   defp sanitize_record(%_{} = struct), do: Map.from_struct(struct) |> sanitize_record()
+
   defp sanitize_record(map) when is_map(map) do
     Map.new(map, fn {k, v} -> {to_atom(k), v} end)
   end
@@ -107,6 +111,7 @@ defmodule SimpleISAM do
   defp cache_record(table, key_fields, sanitized_map, stored_record) do
     Enum.each(key_fields, fn kf ->
       val = Map.get(sanitized_map, kf)
+
       if val != nil do
         :ets.insert(table, {make_key(kf, val), stored_record})
       end
