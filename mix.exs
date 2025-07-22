@@ -8,7 +8,7 @@ defmodule SimpleISAM.MixProject do
     [
       app: :simple_isam,
       version: @version,
-      elixir: "~> 1.18",
+      elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
