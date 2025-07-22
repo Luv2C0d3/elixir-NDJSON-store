@@ -53,7 +53,10 @@ defmodule SimpleISAM do
       cache_record(table, key_fields, rec, rec)
     end)
 
-    {:ok, %{file_path: file_path, key_fields: key_fields, table: table}}
+    # Open file for appending
+    {:ok, file_handle} = File.open(file_path, [:append, :binary])
+
+    {:ok, %{file_path: file_path, key_fields: key_fields, table: table, file_handle: file_handle}}
   end
 
   @impl true
@@ -61,7 +64,7 @@ defmodule SimpleISAM do
     sanitized = sanitize_record(raw_record)
 
     cache_record(state.table, state.key_fields, sanitized, raw_record)
-    append_to_file(state.file_path, sanitized)
+    append_to_file(state.file_handle, sanitized)
 
     {:reply, {:ok, raw_record}, state}
   end
@@ -90,9 +93,14 @@ defmodule SimpleISAM do
           if val != nil, do: :ets.delete(state.table, make_key(kf, val))
         end)
 
-        rewrite_file(state.file_path, state.table)
-        {:reply, {:ok, record}, state}
+        new_handle = rewrite_file(state.file_path, state.table, state.file_handle)
+        {:reply, {:ok, record}, %{state | file_handle: new_handle}}
     end
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    File.close(state.file_handle)
   end
 
   # ---------------------------------------------------------------------------
@@ -109,18 +117,21 @@ defmodule SimpleISAM do
   defp to_atom(k) when is_binary(k), do: String.to_atom(k)
 
   defp cache_record(table, key_fields, sanitized_map, stored_record) do
-    Enum.each(key_fields, fn kf ->
+    Enum.reduce_while(key_fields, :ok, fn kf, _acc ->
       val = Map.get(sanitized_map, kf)
 
       if val != nil do
         :ets.insert(table, {make_key(kf, val), stored_record})
+        {:halt, :ok}
+      else
+        {:cont, :ok}
       end
     end)
   end
 
-  defp append_to_file(path, record) do
+  defp append_to_file(file_handle, record) do
     json = Jason.encode!(record)
-    File.write!(path, json <> "\n", [:append])
+    IO.write(file_handle, json <> "\n")
   end
 
   defp load_from_file(path) do
@@ -135,14 +146,19 @@ defmodule SimpleISAM do
     end
   end
 
-  defp rewrite_file(path, table) do
+  defp rewrite_file(path, table, file_handle) do
     records =
       :ets.tab2list(table)
       |> Enum.map(fn {_, rec} -> rec end)
       |> Enum.uniq()
 
+    # Close current handle and reopen for writing
+    File.close(file_handle)
     File.write!(path, "")
-    Enum.each(records, fn rec -> append_to_file(path, sanitize_record(rec)) end)
+    {:ok, new_handle} = File.open(path, [:append, :binary])
+
+    Enum.each(records, fn rec -> append_to_file(new_handle, sanitize_record(rec)) end)
+    new_handle
   end
 
   defp make_key(kf, val), do: {kf, val}
