@@ -85,9 +85,11 @@ defmodule TokenRepository do
   @impl true
   def init(opts) do
     file_path = Keyword.fetch!(opts, :file_path)
+    buffer_size = Keyword.get(opts, :buffer_size, 100)
     {:ok, pid} = SimpleISAM.start_link(
       file_path: file_path,
-      key_fields: [:access_token, :refresh_token]
+      key_fields: [:access_token, :refresh_token],
+      buffer_size: buffer_size
     )
     {:ok, %{isam_pid: pid}}
   end

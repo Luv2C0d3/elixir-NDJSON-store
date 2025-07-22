@@ -39,6 +39,7 @@ defmodule SimpleISAM do
   def init(opts) do
     file_path = Keyword.fetch!(opts, :file_path)
     key_fields = Keyword.fetch!(opts, :key_fields)
+    buffer_size = Keyword.get(opts, :buffer_size, 100)
 
     # Ensure dir exists
     file_path |> Path.dirname() |> File.mkdir_p!()
@@ -56,7 +57,7 @@ defmodule SimpleISAM do
     # Open file for appending
     {:ok, file_handle} = File.open(file_path, [:append, :binary])
 
-    {:ok, %{file_path: file_path, key_fields: key_fields, table: table, file_handle: file_handle}}
+    {:ok, %{file_path: file_path, key_fields: key_fields, table: table, file_handle: file_handle, buffer: [], buffer_size: 0, max_buffer_size: buffer_size}}
   end
 
   @impl true
@@ -64,9 +65,9 @@ defmodule SimpleISAM do
     sanitized = sanitize_record(raw_record)
 
     cache_record(state.table, state.key_fields, sanitized, raw_record)
-    append_to_file(state.file_handle, sanitized)
+    new_state = buffer_write(state, sanitized)
 
-    {:reply, {:ok, raw_record}, state}
+    {:reply, {:ok, raw_record}, new_state}
   end
 
   @impl true
@@ -93,13 +94,22 @@ defmodule SimpleISAM do
           if val != nil, do: :ets.delete(state.table, make_key(kf, val))
         end)
 
+        # Flush any pending buffer before rewrite
+        if state.buffer != [] do
+          flush_buffer(state.file_handle, state.buffer)
+        end
+
         new_handle = rewrite_file(state.file_path, state.table, state.file_handle)
-        {:reply, {:ok, record}, %{state | file_handle: new_handle}}
+        {:reply, {:ok, record}, %{state | file_handle: new_handle, buffer: [], buffer_size: 0}}
     end
   end
 
   @impl true
   def terminate(_reason, state) do
+    # Flush any pending buffer before closing
+    if state.buffer != [] do
+      flush_buffer(state.file_handle, state.buffer)
+    end
     File.close(state.file_handle)
   end
 
@@ -132,6 +142,27 @@ defmodule SimpleISAM do
   defp append_to_file(file_handle, record) do
     json = Jason.encode!(record)
     IO.write(file_handle, json <> "\n")
+  end
+
+    defp buffer_write(state, record) do
+    json = Jason.encode!(record) <> "\n"
+    new_buffer = [json | state.buffer]
+    new_buffer_size = state.buffer_size + byte_size(json)
+
+    # Flush buffer if it has too many records
+    if length(new_buffer) > state.max_buffer_size do
+      flush_buffer(state.file_handle, new_buffer)
+      %{state | buffer: [], buffer_size: 0}
+    else
+      %{state | buffer: new_buffer, buffer_size: new_buffer_size}
+    end
+  end
+
+  defp flush_buffer(file_handle, buffer) do
+    buffer
+    |> Enum.reverse()  # Reverse to maintain order
+    |> Enum.join()
+    |> then(&IO.write(file_handle, &1))
   end
 
   defp load_from_file(path) do
